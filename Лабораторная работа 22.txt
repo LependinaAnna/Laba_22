@@ -1,0 +1,330 @@
+#define _CRT_SECURE_NO_DEPRECATE
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <locale.h>
+
+#define MAX_POINTS 1000
+#define SCREENW 60
+#define SCREENH 40
+
+struct point {
+    float x;
+    float y;
+    char name;
+};
+typedef struct point Point;
+typedef double (*TFun)(double);
+double Y(double x);
+double V(double x);
+double S(double x);
+void Out_Rez(TFun f, double xn, double xk, double h);
+void print_point(Point p);
+int fill_points(TFun f, double xn, double xk, double h, Point arr[], int max_size);
+void plot(double x0, double x1, TFun f);
+double action(TFun prtf, double xmin, double xmax);
+TFun select_function(int f_choice);
+
+int main() 
+{
+    setlocale(LC_ALL, "RUS");
+
+    int menu_choice, func_choice;
+    double x, xn, xk, h;
+    TFun current_func = NULL;
+
+    while (1) 
+    {
+        puts("\n--- МЕНЮ ОПЕРАЦИЙ---");
+        puts("0. Выход");
+        puts("1. Вычислить значение функции");
+        puts("2. Табулировать функцию");
+        puts("3. Сформировать и напечатать массив точек");
+        puts("4. Найти минимальное значение функции на интервале (Задание3)");
+        puts("5. Построить график функции");
+        puts("Ваш выбор операции");
+        scanf("%d", &menu_choice);
+        if (menu_choice == 0) break;
+        if (menu_choice < 1 || menu_choice > 5) 
+        {
+            printf("Ошибка: неверный пункт меню!\n");
+            continue;
+        }
+        puts("--- МЕНЮ ФУНКЦИЙ ---");
+        puts("1. Y(x)");
+        puts("2. V(x)");
+        puts("3. S(x)");
+        puts("Ваш выбор функции");
+        scanf("%d", &func_choice);
+        current_func = select_function(func_choice);
+        if (current_func == NULL) 
+        {
+            printf("Ошибка: неверный выбор функции!\n");
+            continue;
+        }
+        switch (menu_choice) 
+        {
+            case 1:
+            {
+                printf("Введите значение x\n");
+                scanf("%lf", &x);
+                double res = current_func(x);
+                if (isnan(res)) 
+                {
+                    printf("Ошибка: значение x вне ОДЗ!\n");
+                } 
+                else 
+                {
+                    printf("Результат: f(%.4lf) = %.6lf\n", x, res);
+                }
+                break;
+            }
+            case 2:
+            {
+                printf("Введите начало интервала, конец и шаг\n");
+                scanf("%lf %lf %lf", &xn, &xk, &h);
+                if (h <= 0) 
+                {
+                    printf("Ошибка: шаг табуляции должен быть больше 0!\n");
+                }
+                else if (xn > xk)
+                {
+                    printf("Ошибка: конец интервала должен быть больше начала!\n");
+                }
+                else 
+                {
+                    printf("\nТаблица значений:\n");
+                    Out_Rez(current_func, xn, xk, h);
+                }
+                break;
+            }
+            case 3:
+            {
+                printf("Введите начало интервала, конец и шаг\n");
+                scanf("%lf %lf %lf", &xn, &xk, &h);
+                if (h <= 0) 
+                {
+                    printf("Ошибка: шаг табуляции должен быть больше 0!\n");
+                }
+                else if (xn > xk)
+                {
+                    printf("Ошибка: конец интервала должен быть больше начала!\n");
+                }
+                else 
+                {
+                    Point points_array[MAX_POINTS];
+                    int count = fill_points(current_func, xn, xk, h, points_array, MAX_POINTS);
+                    printf("\nСформированный массив точек (%d точек):\n", count);
+                    for (int i = 0; i < count; i++) 
+                    {
+                        print_point(points_array[i]);
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                printf("Введите начало интервала, конец\n");
+                scanf("%lf %lf", &xn, &xk);
+                if (xn >= xk) 
+                {
+                    printf("Ошибка: конец интервала должен быть больше начала!\n");
+                } 
+                else 
+                {
+                    double min_val = action(current_func, xn, xk);
+                    if (isnan(min_val)) 
+                    {
+                        printf("На данном интервале нет точек, входящих в ОДЗ функции\n");
+                    } 
+                    else 
+                    {
+                        printf("Минимальное значение функции на интервале [%.2lf; %.2lf]: %.6lf\n", xn, xk, min_val);
+                    }
+                }
+                break;
+            }
+            case 5:
+            {
+                printf("Введите границы интервала для графика\n");
+                scanf("%lf %lf", &xn, &xk);
+                if (xn >= xk) 
+                {
+                    printf("Ошибка: конец интервала должен быть больше начала!\n");
+                } 
+                else 
+                {
+                    printf("\nГрафик функции на интервале [%.2lf; %.2lf]:\n\n", xn, xk);
+                    plot(xn, xk, current_func);
+                }
+                break;
+            }
+        }
+    }
+    printf("\nПрограмма завершена");
+    return 0;
+}
+
+double Y(double x) 
+{
+    double Y = log(fabs(sqrt(pow(x, 3.0))));
+    if (x <= 0.0) return NAN; 
+    return Y;
+}
+
+double V(double x) 
+{
+    if (x > 1.0) 
+    {
+        double V1 = tan(x * x - 1.0);
+        if (V1 < 0.0) return NAN; 
+        return sqrt(V1);
+    } 
+    else if (x >= 0.0 && x <= 1.0) 
+    {
+        double V2 = -2.0 * x;
+        return V2;
+    } 
+    else // x < 0
+    {
+        double V3 = exp(cos(x));
+        return V3;
+    }
+}
+
+double S(double x) 
+{
+    if (fabs(x + 1.0) < 1e-12) return NAN; 
+    
+    double q = (x - 1.0) / (x + 1.0);
+    return q + (1.0 / 3.0) * pow(q, 3.0) + (1.0 / 5.0) * pow(q, 5.0) + (1.0 / 7.0) * pow(q, 7.0);
+}
+
+TFun select_function(int f_choice) 
+{
+    if (f_choice == 1) return Y;
+    if (f_choice == 2) return V;
+    if (f_choice == 3) return S;
+    return NULL;
+}
+
+void Out_Rez(TFun f, double xn, double xk, double h) 
+{
+    for (double x = xn; x <= xk + h / 10000.0; x += h) 
+    {
+        double y = f(x);
+        if (isnan(y)) 
+            printf(" x = %6.2lf, y = вне ОДЗ\n", x);
+        else 
+            printf(" x = %6.2lf, y = %10.4lf\n", x, y);
+    }
+}
+
+void print_point(Point p) 
+{
+    printf("point %c (%.2f, %.2f)\n", p.name, p.x, p.y);
+}
+
+int fill_points(TFun f, double xn, double xk, double h, Point arr[], int max_size) 
+{
+    int count = 0;
+    for (double x = xn; x <= xk + h / 10000.0 && count < max_size; x += h) 
+    {
+        double y = f(x);
+        if (!isnan(y)) 
+        {
+            arr[count].x = (float)x;
+            arr[count].y = (float)y;
+            arr[count].name = 'A' + (count % 26); 
+            count++;
+        }
+    }
+    return count;
+}
+
+double action(TFun prtf, double xmin, double xmax) 
+{
+    int steps = 1000; 
+    double step = (xmax - xmin) / steps;
+    double min_y = NAN;
+    int found_valid = 0;
+    for (int i = 0; i <= steps; i++) 
+    {
+        double x = xmin + i * step;
+        double y = prtf(x);
+        if (!isnan(y)) 
+        {
+            if (!found_valid || y < min_y) 
+            {
+                min_y = y;
+                found_valid = 1;
+            }
+        }
+    }
+    return min_y;
+}
+
+void plot(double x0, double x1, TFun f) 
+{
+    char screen[SCREENW][SCREENH];
+    double x, y[SCREENW];
+    double ymin = 1e9, ymax = -1e9;
+    double hx, hy;
+    int i, j;
+    int xz, yz;
+    int has_valid_points = 0;
+    hx = (x1 - x0) / (SCREENW - 1);
+    for (i = 0, x = x0; i < SCREENW; ++i, x += hx) 
+    {
+        y[i] = f(x);
+        if (!isnan(y[i]) && !isinf(y[i])) 
+        {
+            if (y[i] < ymin) ymin = y[i];
+            if (y[i] > ymax) ymax = y[i];
+            has_valid_points = 1;
+        }
+    }
+    if (!has_valid_points) 
+    {
+        printf("Невозможно построить график: на заданном интервале нет точек в ОДЗ\n");
+        return;
+    }
+    if (fabs(ymax - ymin) < 1e-9) 
+    {
+        ymax += 1.0;
+        ymin -= 1.0;
+    }
+    hy = (ymax - ymin) / (SCREENH - 1);
+    yz = (int)floor(ymax / hy + 0.5);
+    xz = (int)floor((0.0 - x0) / hx + 0.5);
+    for (j = 0; j < SCREENH; ++j) 
+    {
+        for (i = 0; i < SCREENW; ++i) 
+        {
+            if (j == yz && i == xz) screen[i][j] = '+';
+            else if (j == yz) screen[i][j] = '-';
+            else if (i == xz) screen[i][j] = '|';
+            else screen[i][j] = ' ';
+        }
+    }
+
+    for (i = 0; i < SCREENW; ++i) 
+    {
+        if (!isnan(y[i]) && !isinf(y[i])) 
+        {
+            j = (int)floor((ymax - y[i]) / hy + 0.5);
+            if (j >= 0 && j < SCREENH)
+            {
+                screen[i][j] = '*';
+            }
+        }
+    }
+    for (j = 0; j < SCREENH; ++j)
+    {
+        for (i = 0; i < SCREENW; ++i)
+        {
+            putchar(screen[i][j]);
+        }
+        putchar('\n');
+    }
+}
